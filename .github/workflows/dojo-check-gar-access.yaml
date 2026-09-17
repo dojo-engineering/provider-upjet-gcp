@@ -1,0 +1,57 @@
+name: Check GAR access
+
+# Cheap (~30s) probe of the publish job's credentials. Use this instead of
+# re-running the real publish workflow, which spends ~10 minutes building
+# before it ever reaches the push.
+
+on:
+  push:
+    tags:
+      - 'gar-check-*'
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    env:
+      GAR_REGISTRY: europe-west2-docker.pkg.dev
+      GAR_PROJECT: dojo-creator-platform-nonprod
+      GAR_REPO: docker
+
+    steps:
+      - id: 'auth'
+        uses: 'google-github-actions/auth@v2'
+        with:
+          token_format: 'access_token'
+          workload_identity_provider: 'projects/665082876110/locations/global/workloadIdentityPools/github-actions/providers/github-actions'
+          service_account: 'pipelines@dojo-platform-2022.iam.gserviceaccount.com'
+
+      - name: Login to GAR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.GAR_REGISTRY }}
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
+
+      - name: Push a throwaway image
+        env:
+          AR: ${{ env.GAR_REGISTRY }}/${{ env.GAR_PROJECT }}/${{ env.GAR_REPO }}
+        run: |
+          set -euo pipefail
+          image="${AR}/ci-access-check:${GITHUB_RUN_ID}"
+          printf 'FROM scratch\nCOPY Dockerfile /\n' > Dockerfile
+          docker build -t "${image}" .
+          docker push "${image}"
+          echo "Pushed ${image}"
+
+      - name: Delete it again
+        if: always()
+        env:
+          AR: ${{ env.GAR_REGISTRY }}/${{ env.GAR_PROJECT }}/${{ env.GAR_REPO }}
+        run: |
+          gcloud artifacts docker images delete \
+            "${AR}/ci-access-check:${GITHUB_RUN_ID}" --quiet --delete-tags || true
