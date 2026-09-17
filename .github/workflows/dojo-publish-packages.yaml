@@ -1,0 +1,108 @@
+name: Publish provider packages to GAR
+run-name: Publish ${{ inputs.subpackages || 'cloudtasks' }} ${{ inputs.version || github.ref_name }}
+
+on:
+  push:
+    tags:
+      - 'v*-dojo.*'
+  workflow_dispatch:
+    inputs:
+      subpackages:
+        description: 'Space-separated service packages, e.g. "cloudtasks"'
+        default: 'cloudtasks'
+        required: true
+      version:
+        description: 'Package version, e.g. v3.0.0-dojo.1 (defaults to the tag on tag pushes)'
+        required: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    env:
+      GAR_REGISTRY: europe-west2-docker.pkg.dev
+      GAR_PROJECT: dojo-creator-platform-nonprod
+      GAR_REPO: docker
+
+    steps:
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          tool-cache: true
+          large-packages: true
+          docker-images: false
+          swap-storage: false
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - id: 'auth'
+        uses: 'google-github-actions/auth@v2'
+        with:
+          token_format: 'access_token'
+          workload_identity_provider: 'projects/665082876110/locations/global/workloadIdentityPools/github-actions/providers/github-actions'
+          service_account: 'pipelines@dojo-platform-2022.iam.gserviceaccount.com'
+
+      - name: Login to GAR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.GAR_REGISTRY }}
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
+
+      - name: Resolve inputs
+        id: cfg
+        run: |
+          echo "version=${{ inputs.version || github.ref_name }}" >> "$GITHUB_OUTPUT"
+          echo "subpackages=${{ inputs.subpackages || 'cloudtasks' }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push packages
+        env:
+          AR: ${{ env.GAR_REGISTRY }}/${{ env.GAR_PROJECT }}/${{ env.GAR_REPO }}
+        run: |
+          make build publish \
+            SUBPACKAGES="${{ steps.cfg.outputs.subpackages }}" \
+            VERSION="${{ steps.cfg.outputs.version }}" \
+            BRANCH_NAME="${GITHUB_REF_NAME}" \
+            RELEASE_BRANCH_FILTER="${GITHUB_REF_NAME}" \
+            PLATFORM=linux_amd64 PLATFORMS=linux_amd64 BATCH_PLATFORMS=linux_amd64 \
+            XPKG_REG_ORGS="${AR}" \
+            XPKG_REG_ORGS_NO_PROMOTE="${AR}" \
+            REGISTRY_ORGS="${AR}" \
+            CONFIG_DEPENDENCY_REG_ORG=xpkg.upbound.io/upbound
+
+      - name: Verify packages were pushed
+        env:
+          AR: ${{ env.GAR_REGISTRY }}/${{ env.GAR_PROJECT }}/${{ env.GAR_REPO }}
+          VERSION: ${{ steps.cfg.outputs.version }}
+        run: |
+          set -euo pipefail
+          for s in ${{ steps.cfg.outputs.subpackages }}; do
+            image="${AR}/provider-gcp-${s}:${VERSION}"
+            echo "Checking ${image}"
+            docker manifest inspect "${image}" > /dev/null \
+              || { echo "::error::${image} was not pushed. 'make publish' is a silent no-op when RELEASE_BRANCH_FILTER does not match the ref."; exit 1; }
+          done
+
+      - name: Summary
+        env:
+          AR: ${{ env.GAR_REGISTRY }}/${{ env.GAR_PROJECT }}/${{ env.GAR_REPO }}
+        run: |
+          {
+            echo "## Published"
+            echo "- **Packages**: ${{ steps.cfg.outputs.subpackages }}"
+            echo "- **Version**: ${{ steps.cfg.outputs.version }}"
+            echo "- **Registry**: ${AR}"
+            echo "- **Ref**: ${GITHUB_REF_NAME} (${GITHUB_SHA})"
+          } >> "$GITHUB_STEP_SUMMARY"
