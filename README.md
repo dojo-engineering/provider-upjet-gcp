@@ -1,59 +1,69 @@
-<!--
-SPDX-FileCopyrightText: 2023 The Crossplane Authors <https://crossplane.io>
+# provider-upjet-gcp (Dojo fork)
 
-SPDX-License-Identifier: CC-BY-4.0
--->
+Fork of [crossplane-contrib/provider-upjet-gcp](https://github.com/crossplane-contrib/provider-upjet-gcp)
+carrying patches we need before they land upstream.
 
-# Upjet-based Crossplane provider for GCP
+`main` mirrors upstream and is not used. We ship from **`release-dojo`**: the
+current upstream release tag plus our patches, rebased forward as upstream
+releases. Which upstream tag it sits on is recorded in the package
+tags. Upstream's own README is kept at [README.upstream.md](README.upstream.md).
 
-<div style="text-align: center;">
+(`main` is covered by an org ruleset requiring Wiz status checks, so it cannot
+be force-pushed. `release-*` branches are unrestricted and match the build
+system's default `RELEASE_BRANCH_FILTER`.)
 
-![CI](https://github.com/crossplane-contrib/provider-upjet-gcp/workflows/CI/badge.svg)
-[![GitHub release](https://img.shields.io/github/release/crossplane-contrib/provider-upjet-gcp/all.svg)](https://github.com/crossplane-contrib/provider-upjet-gcp/releases)
-[![Go Report Card](https://goreportcard.com/badge/github.com/crossplane-contrib/provider-upjet-gcp)](https://goreportcard.com/report/github.com/crossplane-contrib/provider-upjet-gcp)
-[![Contributors](https://img.shields.io/github/contributors/crossplane-contrib/provider-upjet-gcp)](https://github.com/crossplane-contrib/provider-upjet-gcp/graphs/contributors)
-[![Slack](https://img.shields.io/badge/Slack-4A154B?logo=slack)](https://crossplane.slack.com/archives/C05E7EVM459)
-[![X (formerly Twitter) Follow](https://img.shields.io/twitter/follow/crossplane_io)](https://twitter.com/crossplane_io)
+To be removed when https://github.com/crossplane-contrib/provider-upjet-gcp/pull/1031 is merged.
 
-</div>
+## Publishing a package
 
-Provider Upjet-GCP is a [Crossplane](https://crossplane.io/) provider that
-is built using [Upjet](https://github.com/crossplane/upjet) code
-generation tools and exposes XRM-conformant managed resources for the
-GCP API.
+Published artefacts come from **git tags**.
 
-## Getting Started
+```bash
+git tag v3.0.0-dojo.1        # <upstream base>-dojo.<revision>
+git push origin release-dojo
+git push origin v3.0.0-dojo.1
+```
 
-Follow the quick start
-guide [here](https://marketplace.upbound.io/providers/upbound/provider-family-gcp/latest/docs/quickstart).
+The tag push triggers the *Publish provider packages to GAR* workflow.
 
-You can find a detailed API reference for all the managed resources with examples in
-the [Upbound Marketplace](https://marketplace.upbound.io/providers/upbound/provider-family-gcp/latest/managed-resources).
+**Always verify the push** — the upstream build system makes `publish` a silent
+no-op under several conditions, so a green tick is not proof:
 
-For more information about monitoring the Upjet runtime, please
-see [Monitoring Guide](https://github.com/crossplane/upjet/blob/main/docs/monitoring.md)
+```bash
+gcloud artifacts docker images list \
+  europe-west2-docker.pkg.dev/dojo-creator-platform-nonprod/docker/provider-gcp-cloudtasks \
+  --include-tags
+```
 
-## Contributing
+### Versioning
 
-For the general contribution guide,
-see [Upjet Contribution Guide](https://github.com/crossplane/upjet/blob/main/CONTRIBUTING.md)
+`v<upstream-base>-dojo.<n>`, e.g. `v3.0.0-dojo.1`.
 
-If you'd like to learn how to use Upjet, see [Usage Guide](https://github.com/crossplane/upjet/tree/main/docs).
+- states plainly which upstream release it is based on
+- rebuilds of the same base increment `<n>`
+- a new upstream base restarts at `.1`
 
-### Add a New Resource
+Do not use `v3.0.1-...`; that implies an upstream release we are not based on.
 
-Follow the Upjet guide
-for [adding new resources](https://github.com/crossplane/upjet/blob/main/docs/adding-new-resource.md).
+## Rebasing onto a new upstream release
 
-## Getting help
+```bash
+git remote add upstream https://github.com/crossplane-contrib/provider-upjet-gcp.git
+git fetch upstream --tags
 
-For filing bugs, suggesting improvements, or requesting new resources or features, please
-open an [issue](https://github.com/crossplane-contrib/provider-upjet-gcp/issues/new/choose).
+git checkout release-dojo
+git rebase --onto v3.1.0 v3.0.0          # old base -> new base
+make generate                            # reconcile generated files
+make reviewable
+git push --force-with-lease origin release-dojo
 
-For general help on using the provider consider asking the Crossplane community in the
-[#upjet-provider-gcp](https://crossplane.slack.com/archives/C05E7EVM459) channel in
-[Crossplane Slack](https://slack.crossplane.io)
+git tag v3.1.0-dojo.1
+git push origin v3.1.0-dojo.1
+```
 
-## License
+Conflicts land almost exclusively in generated files. Do not hand-merge them:
+take the new base's version (`git checkout --ours <file>`), finish the rebase,
+then run `make generate` and amend.
 
-The provider is released under the [the Apache 2.0 license](LICENSE) with [notice](NOTICE).
+When a patch lands upstream, drop that commit from the branch. When no patches
+remain, delete the fork.
