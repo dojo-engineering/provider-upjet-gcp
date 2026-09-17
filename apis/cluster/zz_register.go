@@ -39,6 +39,7 @@ import (
 	v1beta1cloudquotas "github.com/upbound/provider-gcp/v2/apis/cluster/cloudquotas/v1beta1"
 	v1beta2cloudrun "github.com/upbound/provider-gcp/v2/apis/cluster/cloudrun/v1beta2"
 	v1beta2cloudscheduler "github.com/upbound/provider-gcp/v2/apis/cluster/cloudscheduler/v1beta2"
+	v1beta1cloudtasks "github.com/upbound/provider-gcp/v2/apis/cluster/cloudtasks/v1beta1"
 	v1beta2cloudtasks "github.com/upbound/provider-gcp/v2/apis/cluster/cloudtasks/v1beta2"
 	v1beta2composer "github.com/upbound/provider-gcp/v2/apis/cluster/composer/v1beta2"
 	v1beta1compute "github.com/upbound/provider-gcp/v2/apis/cluster/compute/v1beta1"
@@ -161,6 +162,7 @@ func init() {
 		v1beta1cloudquotas.SchemeBuilder.AddToScheme,
 		v1beta2cloudrun.SchemeBuilder.AddToScheme,
 		v1beta2cloudscheduler.SchemeBuilder.AddToScheme,
+		v1beta1cloudtasks.SchemeBuilder.AddToScheme,
 		v1beta2cloudtasks.SchemeBuilder.AddToScheme,
 		v1beta2composer.SchemeBuilder.AddToScheme,
 		v1beta1compute.SchemeBuilder.AddToScheme,

@@ -112,6 +112,7 @@ import (
 	v2service "github.com/upbound/provider-gcp/v2/internal/controller/namespaced/cloudrun/v2service"
 	jobcloudscheduler "github.com/upbound/provider-gcp/v2/internal/controller/namespaced/cloudscheduler/job"
 	queue "github.com/upbound/provider-gcp/v2/internal/controller/namespaced/cloudtasks/queue"
+	queueiammember "github.com/upbound/provider-gcp/v2/internal/controller/namespaced/cloudtasks/queueiammember"
 	environmentcomposer "github.com/upbound/provider-gcp/v2/internal/controller/namespaced/composer/environment"
 	address "github.com/upbound/provider-gcp/v2/internal/controller/namespaced/compute/address"
 	attacheddisk "github.com/upbound/provider-gcp/v2/internal/controller/namespaced/compute/attacheddisk"
@@ -524,6 +525,7 @@ func Setup_monolith(mgr ctrl.Manager, o controller.Options) error {
 		v2service.Setup,
 		jobcloudscheduler.Setup,
 		queue.Setup,
+		queueiammember.Setup,
 		environmentcomposer.Setup,
 		address.Setup,
 		attacheddisk.Setup,
@@ -942,6 +944,7 @@ func SetupGated_monolith(mgr ctrl.Manager, o controller.Options) error {
 		v2service.SetupGated,
 		jobcloudscheduler.SetupGated,
 		queue.SetupGated,
+		queueiammember.SetupGated,
 		environmentcomposer.SetupGated,
 		address.SetupGated,
 		attacheddisk.SetupGated,
@@ -1359,6 +1362,7 @@ func SetupWebhookWithManager_monolith(mgr ctrl.Manager) error {
 		v2service.SetupWebhookWithManager,
 		jobcloudscheduler.SetupWebhookWithManager,
 		queue.SetupWebhookWithManager,
+		queueiammember.SetupWebhookWithManager,
 		environmentcomposer.SetupWebhookWithManager,
 		address.SetupWebhookWithManager,
 		attacheddisk.SetupWebhookWithManager,
